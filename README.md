@@ -1,0 +1,76 @@
+# Debian 10 Buster On Cavium ThunderX2
+
+Some utilities and notes for running [Debian 10 Buster](https://wiki.debian.org/DebianBuster) on machines with Cavium's ARM64 [ThunderX2](https://www.cavium.com/product-thunderx2-arm-processors.html) processors.
+
+Please report any problems encountered during install, any missing kernel config options, etc. through the [issue tracker](../../issues) of this project.
+
+## Debian 10 Install
+
+The current Debian 10 Buster [`firmware-nonfree`](https://packages.debian.org/buster/firmware-qlogic) package is out of date and does not include the firmware versions needed for the Qlogic Network adapter found on many ThunderX2 machines.  Several work-arounds below can be used until an updated firmware-nonfree package is available.  Firmware loaded during the installation will be copied to the installed system.
+
+For more info on Debian installation see:
+
+* [Debian Installation Guide](https://d-i.debian.org/manual/en.arm64/)
+* [Firmware during the installation](https://wiki.debian.org/Firmware#Firmware_during_the_installation)
+* [Netbooting and Firmware](https://wiki.debian.org/DebianInstaller/NetbootFirmware)
+* [Debian firmware Bug Report](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=900036)
+
+### Firmware From Removable Media
+
+Missing firmware can be loaded from removable media.  See: [Loading Missing Firmware](https://d-i.debian.org/manual/en.arm64/ch06s04.html).
+
+### Firmware From Custom Initrd
+
+A custom installer initrd that includes the needed firmware files can be created.
+
+The [releases page](../../releases) of this project has pre-build netboot initrd images that can be used.  This is the recommended method.
+
+To create a custom initrd yourself use commands like these:
+
+```sh
+# download
+fw_version="8.33.1.0"
+wget -O initrd-orig.gz https://d-i.debian.org/daily-images/arm64/daily/netboot/debian-installer/arm64/initrd.gz
+wget https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/tree/qed/qed_init_values_zipped-${fw_version}.bin
+
+# extract files
+rm -rf initrd-files
+mkdir initrd-files
+(cd initrd-files && cat ../initrd-orig.gz | gunzip | cpio --extract --make-directories --preserve-modification-time --verbose)
+
+# edit files
+mkdir -p initrd-files/lib/firmware/qed
+cp -v qed_init_values_zipped-${fw_version}.bin initrd-files/lib/firmware/qed/
+echo 'base-config     apt-setup/non-free      boolean true' > initrd-files/preseed.cfg
+
+# archive
+(cd initrd-files && find . | cpio --create --format='newc' --owner=root:root | gzip > ../initrd-qed-${fw_version}.gz)
+```
+
+## Utilities
+
+* `build-kernel-builder.sh` - Builds a Debian based Docker container (buster-kernel-builder) that has all the packages pre-installed that are needed to build the Debian Linux kernel.
+* `run-kernel-builder.sh` - Enters the buster-kernel-builder container.
+
+Note that these utilities must be run on an ARM64 machine.
+
+To install Docker on Debian systems see [install-docker-ce](https://docs.docker.com/install/linux/docker-ce/debian/#install-docker-ce).  Check the [buster package pool](https://download.docker.com/linux/debian/dists/buster/pool) to see what Docker versions are available in the `stable` and `edge` repositories.
+
+## To Build A Custom Debian Kernel
+
+On the host:
+
+    ./docker/build-kernel-builder.sh
+    ./docker/run-kernel-builder.sh
+
+Inside the `buster-kernel-builder` container:
+
+    # cp -a /usr/src/linux-4.xx.yy .
+    # cd linux-4.xx.yy
+    # fakeroot make -f debian/rules.gen setup_arm64
+    # cd debian/build/build_arm64_none_arm64
+    # make help
+    # make menuconfig
+    # make
+
+For more info on building a custom Debian kernel see: https://kernel-handbook.alioth.debian.org/ch-common-tasks.html.
