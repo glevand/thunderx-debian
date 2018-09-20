@@ -19,7 +19,7 @@ usage () {
 	echo "  -h --help        - Show this help and exit." >&2
 	echo "  -o --host <host> - Container hostname. Default: '${docker_host}'" >&2
 	echo "  -n --name <name> - Container name. Default: '${docker_name}'" >&2
-	echo "  -u --user        - Enter container as current user. Default: '$(id -u):$(id -g)'." >&2
+	echo "  -u --user        - Enter container as current user. Default: '${docker_user}'." >&2
 	echo "  -v --verbose     - Verbose execution." >&2
 	echo "Environment:" >&2
 	echo "  DOCKER_TAG       - Default: '${DOCKER_TAG}'" >&2
@@ -53,7 +53,7 @@ while true ; do
 		shift 2
 		;;
 	-u | --user)
-		docker_user=1
+		docker_user="$(id -u):$(id -g)"
 		shift
 		;;
 	-v | --verbose)
@@ -86,8 +86,8 @@ if [[ -n "${docker_name}" ]]; then
 	docker_flags+=" --name=${docker_name}"
 fi
 
-if [[ -n ${docker_user} ]]; then
-	docker_flags+=" --user=$(id -u):$(id -g)"
+if [[ -n "${docker_user}" ]]; then
+	docker_flags+=" --user=${docker_user}"
 fi
 
 mkdir -p ${WORK_DIR}

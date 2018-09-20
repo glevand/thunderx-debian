@@ -6,32 +6,31 @@ Please report any problems encountered during install, any missing kernel config
 
 ## Debian 10 Install
 
-The current Debian 10 Buster [`firmware-nonfree`](https://packages.debian.org/buster/firmware-qlogic) package is out of date and does not include the firmware versions needed for the Qlogic Network adapter found on many ThunderX2 machines.  Several work-arounds below can be used until an updated firmware-nonfree package is available.  Firmware loaded during the installation will be copied to the installed system.
+The current Debian 10 Buster [`firmware-nonfree`](https://packages.debian.org/buster/firmware-qlogic) package includes the firmware files needed for the Qlogic Network adapter found on many ThunderX2 machines.  Debian policy does not allow these firmware files to be included in the Debian distribution proper and the user must arrange for the files to be available to the Debian installer.  Firmware files available during the installation will be copied to the installed system and no further action is required.
 
-For more info on Debian installation see:
+For more info on Debian installation and installation with firmware files see:
 
 * [Debian Installation Guide](https://d-i.debian.org/manual/en.arm64/)
 * [Firmware during the installation](https://wiki.debian.org/Firmware#Firmware_during_the_installation)
 * [Netbooting and Firmware](https://wiki.debian.org/DebianInstaller/NetbootFirmware)
-* [Debian firmware Bug Report](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=900036)
 
 ### Firmware From Removable Media
 
-Missing firmware can be loaded from removable media.  See: [Loading Missing Firmware](https://d-i.debian.org/manual/en.arm64/ch06s04.html).
+Firmware can be loaded from removable media.  See: [Loading Missing Firmware](https://d-i.debian.org/manual/en.arm64/ch06s04.html).
 
 ### Firmware From Custom Initrd
 
 A custom installer initrd that includes the needed firmware files can be created.
 
-The [releases page](../../releases) of this project has pre-build netboot initrd images that can be used.  This is the recommended method.
+The [releases page](../../releases) of this project has pre-build netboot initrd images that can be used.
 
 To create a custom initrd yourself use commands like these:
 
 ```sh
 # download
-fw_version="8.33.1.0"
+fw_version="8.37.2.0"
 wget -O initrd-orig.gz https://d-i.debian.org/daily-images/arm64/daily/netboot/debian-installer/arm64/initrd.gz
-wget https://d-i.debian.org/daily-images/arm64/daily/netboot/debian-installer/arm64/MD5SUMS
+wget https://d-i.debian.org/daily-images/arm64/daily/MD5SUMS
 egrep 'netboot/debian-installer/arm64/initrd.gz' MD5SUMS
 md5sum initrd-orig.gz
 wget https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/tree/qed/qed_init_values_zipped-${fw_version}.bin
@@ -54,6 +53,7 @@ echo 'base-config     apt-setup/non-free      boolean true' > initrd-files/prese
 
 * `build-kernel-builder.sh` - Builds a Debian based Docker container (buster-kernel-builder) that has all the packages pre-installed that are needed to build the Debian Linux kernel.
 * `run-kernel-builder.sh` - Enters the buster-kernel-builder container.
+* `build-kernel.sh` - Build the Debian Buster kernel inside the buster-kernel-builder container.
 
 Note that these utilities must be run on an ARM64 machine or through ARM64 emulation.
 
@@ -69,10 +69,17 @@ On the host:
 $ ./docker/build-kernel-builder.sh --help
 $ ./docker/run-kernel-builder.sh --help
 $ ./docker/build-kernel-builder.sh
-$ ./docker/run-kernel-builder.sh
+$ ./docker/run-kernel-builder.sh --user
 ```
 
 Inside the `buster-kernel-builder` container:
+
+```sh
+# /thunder-debian/utils/build-kernel.sh --help
+# /thunder-debian/utils/build-kernel.sh
+```
+
+Or
 
 ```sh
 # cp -a /usr/src/linux-4.xx.yy .
