@@ -15,8 +15,8 @@ usage() {
 	echo "  -b --build-only   - Only run (2nd) build step." >&2
 	echo "  -d --dry-run      - Do not run commands." >&2
 	echo "  -h --help         - Show this help and exit." >&2
-	echo "  -n --build-number - Build number. Default: '${build_number}'." >&2
-	echo "  -r --revision     - Kernel revision. Default: '${revision}'." >&2
+	echo "  -i --build-id     - Build id. Default: '${build_id}'." >&2
+	echo "  -k --kernel-src   - Kernel source directory. Default: '${kernel_src}'." >&2
 	echo "  -s --setup-only   - Only run (1st) setup step." >&2
 	echo "  -v --verbose      - Verbose execution." >&2
 	echo "  -w --work-dir     - Build directory. Default: '${work_dir}'." >&2
@@ -28,8 +28,8 @@ usage() {
 	echo "  ${name} --build-only" >&2
 }
 
-short_opts="bdhn:r:svw:"
-long_opts="build-only,dry-run,help,build-number:,revision:,setup-only,verbose,work-dir:"
+short_opts="bdhi:k:svw:"
+long_opts="build-only,dry-run,help,build-id:,kernel-src:,setup-only,verbose,work-dir:"
 
 opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
 
@@ -54,12 +54,12 @@ while true ; do
 		usage=1
 		shift
 		;;
-	-n | --build-number)
-		build_number="${2}"
+	-i | --build-id)
+		build_id="${2}"
 		shift 2
 		;;
-	-r | --revision)
-		revision="${2}"
+	-k | --kernel-src)
+		kernel_src="${2}"
 		shift 2
 		;;
 	-s | --setup-only)
@@ -93,6 +93,14 @@ if [[ -z "${work_dir}" ]]; then
 	work_dir="$(pwd)"
 fi
 
+check_src() {
+	if [[ ! -d "${1}" ]]; then
+		echo "${name}: ERROR: bad <kernel-src>: '${1}'" >&2 
+		usage
+		exit 1
+	fi
+}
+
 check_revision() {
 	if [[ ! -d "/usr/src/linux-${1}" ]]; then
 		echo "${name}: ERROR: bad revision: '${1}'" >&2 
@@ -101,13 +109,8 @@ check_revision() {
 	fi
 }
 
-if [[ -z "${revision}" ]]; then
-	revision=$(echo /usr/src/linux-[0-9].[0-9]* | egrep -o '[.0-9]*$')
-	check_revision ${revision}
-fi
-
-if [[ -z "${build_number}" ]]; then
-	build_number=1
+if [[ -z "${kernel_src}" ]]; then
+	kernel_src="/usr/src/$(echo /usr/src/linux-[0-9]* | egrep -o 'linux-[.0-9]*$')"
 fi
 
 if [[ -n "${usage}" ]]; then
@@ -115,16 +118,18 @@ if [[ -n "${usage}" ]]; then
 	exit 0
 fi
 
+check_src "${kernel_src}"
+revision=$(echo "${kernel_src}" | egrep -o '[.0-9]*$')
 check_revision ${revision}
 
-build="build-${revision}-${build_number}/linux-${revision}"
+build="build-linux-${revision}${build_id}"
 build_dir="$(pwd)/${build}"
 
 if [[ ! ${build_only} ]]; then
 	run_cmd "mkdir -p ${build_dir}"
 	run_cmd "ln -s ${build} current-linux-build"
 
-	run_cmd "rsync -av --delete /usr/src/linux-${revision}/ ${build_dir}/"
+	run_cmd "rsync -av --delete ${kernel_src}/ ${build_dir}/"
 	run_cmd "chown -R $(id -u):$(id -g) ${build_dir}"
 
 	run_cmd "cd ${build_dir}"
@@ -152,5 +157,5 @@ if [[ ! ${setup_only} ]]; then
 	run_cmd "CCACHE_DIR=$(pwd)/.ccache make CROSS_COMPILE='ccache ' -j${cpus}"
 	run_cmd "make savedefconfig"
 
-	echo "${name}: Success, built linux-${revision} in ${build_dir}"
+	echo "${name}: Success, built ${kernel_src} in ${build_dir}"
 fi
