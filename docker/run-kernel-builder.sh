@@ -16,18 +16,18 @@ usage () {
 	echo "${name} - Enters an interactive '${DOCKER_TAG}' container session." >&2
 	echo "Usage: ${name} [flags]" >&2
 	echo "Option flags:" >&2
-	echo "  -h --help        - Show this help and exit." >&2
-	echo "  -o --host <host> - Container hostname. Default: '${docker_host}'" >&2
-	echo "  -n --name <name> - Container name. Default: '${docker_name}'" >&2
-	echo "  -u --user        - Enter container as current user. Default: '${docker_user}'." >&2
-	echo "  -v --verbose     - Verbose execution." >&2
+	echo "  -h --help           - Show this help and exit." >&2
+	echo "  -o --host <host>    - Container hostname. Default: '${docker_host}'" >&2
+	echo "  -n --name <name>    - Container name. Default: '${docker_name}'" >&2
+	echo "  -u --user <uid:gid> - Enter container as user. Default: '${docker_user}'." >&2
+	echo "  -v --verbose        - Verbose execution." >&2
 	echo "Environment:" >&2
-	echo "  DOCKER_TAG       - Default: '${DOCKER_TAG}'" >&2
-	echo "  WORK_DIR         - Default: '${WORK_DIR}'" >&2
+	echo "  DOCKER_TAG - Default: '${DOCKER_TAG}'" >&2
+	echo "  WORK_DIR   - Default: '${WORK_DIR}'" >&2
 }
 
-short_opts="ho:n:uv"
-long_opts="help,host:,name:,user,verbose"
+short_opts="ho:n:u:v"
+long_opts="help,host:,name:,user:,verbose"
 
 opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
 
@@ -53,8 +53,8 @@ while true ; do
 		shift 2
 		;;
 	-u | --user)
-		docker_user="$(id -u):$(id -g)"
-		shift
+		docker_user="${2}"
+		shift 2
 		;;
 	-v | --verbose)
 		set -x
@@ -72,6 +72,10 @@ while true ; do
 		;;
 	esac
 done
+
+if [[ -z "${docker_user}" ]]; then
+	docker_user="$(id -u):$(id -g)"
+fi
 
 if [[ -n "${usage}" ]]; then
 	usage

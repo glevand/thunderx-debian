@@ -3,6 +3,8 @@
 FROM arm64v8/debian:buster
 
 RUN echo 'deb-src http://deb.debian.org/debian buster main' >> /etc/apt/sources.list \
+	&& echo 'deb-src http://deb.debian.org/debian unstable main' >> /etc/apt/sources.list \
+	&& echo 'APT::Default-Release "buster";' > /etc/apt/apt.conf.d/default-release \
 	&& apt-get update \
 	&& apt-get upgrade -y \
 	&& apt-get install -y \
@@ -15,9 +17,9 @@ RUN echo 'deb-src http://deb.debian.org/debian buster main' >> /etc/apt/sources.
 		vim \
 	&& apt-get -y build-dep linux \
 	&& mkdir -p /usr/src \
-	&& (cd /usr/src && apt-get -y source linux) \
-	&& (cd /usr/src && apt-get -y source debian-installer/testing) \
-	&& apt autoremove \
+	&& (cd /usr/src && apt-get -y source linux/buster \
+		debian-installer/buster) \
+	&& apt-get autoremove \
 	&& rm -rf /var/lib/apt/lists/*
 
 CMD /bin/bash
