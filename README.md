@@ -6,7 +6,7 @@ Please report any problems encountered during install, any missing kernel config
 
 ## Debian 10 Install
 
-The current Debian 10 Buster [`firmware-nonfree`](https://packages.debian.org/buster/firmware-qlogic) package includes the firmware files needed for the Qlogic Network adapter found on many ThunderX2 machines.  Debian policy does not allow these firmware files to be included in the Debian distribution proper and the user must arrange for the files to be available to the Debian installer.  Firmware files available during the installation will be copied to the installed system and no further action is required.
+The current Debian 10 Buster [`firmware-nonfree`](https://packages.debian.org/buster/firmware-qlogic) package includes the firmware files needed for the Qlogic Network adapter found on many ThunderX2 machines.  Debian policy does not allow these firmware files to be included in the Debian distribution proper and the user must arrange for the files to be available to the Debian installer.  Firmware files available during the installation will be copied to the installed system.  Once the system is running, install the `firmware-qlogic` package to keep the installed firmware files syncronized with the installed kernel.
 
 For more info on Debian installation and installation with firmware files see:
 
@@ -52,8 +52,8 @@ echo 'base-config     apt-setup/non-free      boolean true' > initrd-files/prese
 ## Utilities
 
 * `build-kernel-builder.sh` - Builds a Debian based Docker container (buster-kernel-builder) that has all the packages pre-installed that are needed to build the Debian Linux kernel.
-* `run-kernel-builder.sh` - Enters the buster-kernel-builder container.
-* `build-kernel.sh` - Build the Debian Buster kernel inside the buster-kernel-builder container.
+* `run-kernel-builder.sh` - Starts the buster-kernel-builder container in interactive mode.
+* `build-kernel.sh` - Will build the Debian Buster kernel when run from inside the buster-kernel-builder container.
 
 Note that these utilities must be run on an ARM64 machine or through ARM64 emulation.
 
@@ -68,8 +68,9 @@ On the host:
 ```sh
 $ ./docker/build-kernel-builder.sh --help
 $ ./docker/run-kernel-builder.sh --help
+
 $ ./docker/build-kernel-builder.sh
-$ ./docker/run-kernel-builder.sh --user
+$ ./docker/run-kernel-builder.sh
 ```
 
 Inside the `buster-kernel-builder` container:
