@@ -9,27 +9,31 @@ name="$(basename ${0})"
 source ${TOP_DIR}/util-common.sh
 
 usage() {
+	local old_xtrace="$(shopt -po xtrace || :)"
+	set +o xtrace
 	echo "${name} - Builds Debian kernel." >&2
 	echo "Usage: ${name} [flags]" >&2
 	echo "Option flags:" >&2
-	echo "  -b --build-only   - Only run (2nd) build step." >&2
 	echo "  -d --dry-run      - Do not run commands." >&2
 	echo "  -h --help         - Show this help and exit." >&2
 	echo "  -i --build-id     - Build id. Default: '${build_id}'." >&2
 	echo "  -k --kernel-src   - Kernel source directory. Default: '${kernel_src}'." >&2
-	echo "  -s --setup-only   - Only run (1st) setup step." >&2
 	echo "  -v --verbose      - Verbose execution." >&2
 	echo "  -w --work-dir     - Build directory. Default: '${work_dir}'." >&2
+	echo "Option steps:" >&2
+	echo "  -1 --setup-source - Run setup source step. Default: '${step_setup_source}'." >&2
+	echo "  -2 --build-kernel - Run build kernel step. Default: '${step_build_kernel}'." >&2
 	echo "Info:" >&2
 	echo "  ${cpus} CPUs available." >&2
 	echo "Examples:" >&2
-	echo "  ${name} --setup-only" >&2
+	echo "  ${name} --setup-source" >&2
 	echo "  <edit source files, add patches, etc.>" >&2
-	echo "  ${name} --build-only" >&2
+	echo "  ${name} -source" >&2
+	eval "${old_xtrace}"
 }
 
-short_opts="bdhi:k:svw:"
-long_opts="build-only,dry-run,help,build-id:,kernel-src:,setup-only,verbose,work-dir:"
+short_opts="dhi:k:vw:12"
+long_opts="dry-run,help,build-id:,kernel-src:,verbose,work-dir:,setup-source,build-kernel"
 
 opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
 
@@ -42,10 +46,6 @@ eval set -- "${opts}"
 
 while true ; do
 	case "${1}" in
-	-b | --build-only)
-		build_only=1
-		shift
-		;;
 	-d | --dry-run)
 		dry_run=1
 		shift
@@ -62,10 +62,6 @@ while true ; do
 		kernel_src="${2}"
 		shift 2
 		;;
-	-s | --setup-only)
-		setup_only=1
-		shift
-		;;
 	-v | --verbose)
 		set -x
 		verbose=1
@@ -74,6 +70,14 @@ while true ; do
 	-w | --work-dir)
 		work_dir="${2}"
 		shift 2
+		;;
+	-1 | --setup-source)
+		step_setup_source=1
+		shift
+		;;
+	-2 | --build-kernel)
+		step_build_kernel=1
+		shift
 		;;
 	--)
 		shift
@@ -92,6 +96,21 @@ cpus="$(cpu_count)"
 if [[ -z "${work_dir}" ]]; then
 	work_dir="$(pwd)"
 fi
+
+step_code="${step_setup_source}-${step_build_kernel}"
+case "${step_code}" in
+1-|1-1|-1)
+	#echo "${name}: Steps OK" >&2
+	;;
+--)
+	step_setup_source=1
+	step_build_kernel=1
+	;;
+*)
+	echo "${name}: ERROR: Internal bad step_code: '${step_code}'." >&2
+	exit 1
+	;;
+esac
 
 check_src() {
 	if [[ ! -d "${1}" ]]; then
@@ -125,9 +144,9 @@ check_revision ${revision}
 build="build-linux-${revision}${build_id}"
 build_dir="$(pwd)/${build}"
 
-if [[ ! ${build_only} ]]; then
+if [[ ${step_setup_source} ]]; then
 	run_cmd "mkdir -p ${build_dir}"
-	run_cmd "ln -s ${build} current-linux-build"
+	run_cmd "ln -sfT ${build} current-linux-build"
 
 	run_cmd "rsync -av --delete ${kernel_src}/ ${build_dir}/"
 	run_cmd "chown -R $(id -u):$(id -g) ${build_dir}"
@@ -145,7 +164,7 @@ if [[ ! ${build_only} ]]; then
 	echo "${name}: Success, setup ${build_dir}"
 fi
 
-if [[ ! ${setup_only} ]]; then
+if [[ ${step_build_kernel} ]]; then
 	run_cmd "cd ${build_dir}"
 
 	run_cmd "quilt pop -a"
