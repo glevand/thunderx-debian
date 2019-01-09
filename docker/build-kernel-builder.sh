@@ -20,6 +20,7 @@ usage () {
 	echo "  -t --tag      - Print Docker tag to stdout and exit." >&2
 	echo "  -v --verbose  - Verbose execution." >&2
 	echo "Environment:" >&2
+	echo "  VERSION       - Default: '${VERSION}'" >&2
 	echo "  DOCKER_FILE   - Default: '${DOCKER_FILE}'" >&2
 	echo "  DOCKER_TAG    - Default: '${DOCKER_TAG}'" >&2
 }
