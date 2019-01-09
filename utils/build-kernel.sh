@@ -38,7 +38,7 @@ long_opts="dry-run,help,build-id:,kernel-src:,verbose,work-dir:,setup-source,bui
 opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
 
 if [ $? != 0 ]; then
-	echo "${name}: ERROR: Internal getopt" >&2 
+	echo "${name}: ERROR: Internal getopt" >&2
 	exit 1
 fi
 
@@ -84,7 +84,7 @@ while true ; do
 		break
 		;;
 	*)
-		echo "${name}: ERROR: Internal opts" >&2 
+		echo "${name}: ERROR: Internal opts" >&2
 		exit 1
 		;;
 	esac
@@ -97,12 +97,49 @@ if [[ -z "${work_dir}" ]]; then
 	work_dir="$(pwd)"
 fi
 
+if [[ ${kernel_src} ]]; then
+	if [[ ! -d ${kernel_src} ]]; then
+		echo "${name}: ERROR: bad <kernel-src>: '${kernel_src}'" >&2
+		usage
+		exit 1
+	fi
+else
+	kernel_src=$(find /usr/src/ -maxdepth 1 -type d -name 'linux-[4-6].[0-9]*')
+	
+	if [[ ! ${kernel_src} ]]; then
+		echo "${name}: ERROR: No kernel source kernel_src found in /usr/src/. Use --kernel-src option." >&2
+		usage
+		exit 1
+	fi
+
+	if [ $(echo "${kernel_src}" | wc -l) -gt 1 ]; then
+		echo "${name}: ERROR: Multiple kernel source kernel_src found in /usr/src/. Use --kernel-src option." >&2
+		usage
+		exit 1
+	fi
+fi
+
+revision=$(echo "${kernel_src}" | egrep -o '[.0-9]*$')
+if [[ ! -d "/usr/src/linux-${revision}" ]]; then
+	echo "${name}: ERROR: bad revision: '${revision}'" >&2
+	usage
+	exit 1
+fi
+
+if [[ -n "${usage}" ]]; then
+	usage
+	exit 0
+fi
+
+build="build-linux-${revision}${build_id}"
+build_dir="$(pwd)/${build}"
+
 step_code="${step_setup_source}-${step_build_kernel}"
 case "${step_code}" in
 1-|1-1|-1)
 	#echo "${name}: Steps OK" >&2
 	;;
---)
+-)
 	step_setup_source=1
 	step_build_kernel=1
 	;;
@@ -111,38 +148,6 @@ case "${step_code}" in
 	exit 1
 	;;
 esac
-
-check_src() {
-	if [[ ! -d "${1}" ]]; then
-		echo "${name}: ERROR: bad <kernel-src>: '${1}'" >&2 
-		usage
-		exit 1
-	fi
-}
-
-check_revision() {
-	if [[ ! -d "/usr/src/linux-${1}" ]]; then
-		echo "${name}: ERROR: bad revision: '${1}'" >&2 
-		usage
-		exit 1
-	fi
-}
-
-if [[ -z "${kernel_src}" ]]; then
-	kernel_src="/usr/src/$(echo /usr/src/linux-[0-9]* | egrep -o 'linux-[.0-9]*$')"
-fi
-
-if [[ -n "${usage}" ]]; then
-	usage
-	exit 0
-fi
-
-check_src "${kernel_src}"
-revision=$(echo "${kernel_src}" | egrep -o '[.0-9]*$')
-check_revision ${revision}
-
-build="build-linux-${revision}${build_id}"
-build_dir="$(pwd)/${build}"
 
 if [[ ${step_setup_source} ]]; then
 	run_cmd "mkdir -p ${build_dir}"
