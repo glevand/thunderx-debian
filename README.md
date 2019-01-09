@@ -102,8 +102,8 @@ $ ./docker/run-kernel-builder.sh
 Inside the `buster-kernel-builder` container:
 
 ```sh
-# /thunder-debian/utils/build-kernel.sh --help
-# /thunder-debian/utils/build-kernel.sh
+# /thunderx-debian/utils/build-kernel.sh --help
+# /thunderx-debian/utils/build-kernel.sh
 ```
 
 Or
