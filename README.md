@@ -79,7 +79,7 @@ Installation can be done with a USB-to-Ethernet adapter or an Ethernet PCI adapt
 
 * `build-kernel-builder.sh` - Builds a Debian based Docker container (buster-kernel-builder) that has all the packages pre-installed that are needed to build the Debian Linux kernel.
 * `run-kernel-builder.sh` - Starts the buster-kernel-builder container in interactive mode.
-* `build-kernel.sh` - Will build the Debian Buster kernel when run from inside the buster-kernel-builder container.
+* `build-debian-kernel.sh` - Will build the Debian Buster kernel when run from inside the buster-kernel-builder container.
 
 Note that these utilities must be run on an ARM64 machine or through ARM64 emulation.
 
@@ -102,8 +102,8 @@ $ ./docker/run-kernel-builder.sh
 Inside the `buster-kernel-builder` container:
 
 ```sh
-# /thunderx-debian/utils/build-kernel.sh --help
-# /thunderx-debian/utils/build-kernel.sh
+# /thunderx-debian/utils/build-debian-kernel.sh --help
+# /thunderx-debian/utils/build-debian-kernel.sh
 ```
 
 Or

@@ -19,21 +19,22 @@ usage() {
 	echo "  -i --build-id     - Build id. Default: '${build_id}'." >&2
 	echo "  -k --kernel-src   - Kernel source directory. Default: '${kernel_src}'." >&2
 	echo "  -v --verbose      - Verbose execution." >&2
-	echo "  -w --work-dir     - Build directory. Default: '${work_dir}'." >&2
+	echo "  -w --work-dir     - Working directory. Default: '${work_dir}'." >&2
 	echo "Option steps:" >&2
 	echo "  -1 --setup-source - Run setup source step. Default: '${step_setup_source}'." >&2
-	echo "  -2 --build-kernel - Run build kernel step. Default: '${step_build_kernel}'." >&2
+	echo "  -2 --run-quilt    - Run quilt step. Default: '${step_run_quilt}'." >&2
+	echo "  -3 --build-kernel - Run build kernel step. Default: '${step_build_kernel}'." >&2
 	echo "Info:" >&2
 	echo "  ${cpus} CPUs available." >&2
 	echo "Examples:" >&2
 	echo "  ${name} --setup-source" >&2
-	echo "  <edit source files, add patches, etc.>" >&2
-	echo "  ${name} -source" >&2
+	echo "  # edit source files, add patches, etc." >&2
+	echo "  ${name} --run-quilt --build-kernel" >&2
 	eval "${old_xtrace}"
 }
 
 short_opts="dhi:k:vw:12"
-long_opts="dry-run,help,build-id:,kernel-src:,verbose,work-dir:,setup-source,build-kernel"
+long_opts="dry-run,help,build-id:,kernel-src:,verbose,work-dir:,setup-source,run-quilt,build-kernel"
 
 opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
 
@@ -63,6 +64,7 @@ while true ; do
 		shift 2
 		;;
 	-v | --verbose)
+		export PS4='\[\033[0;33m\]+$(basename ${BASH_SOURCE}):${LINENO}: \[\033[0;37m\]'
 		set -x
 		verbose=1
 		shift
@@ -75,7 +77,11 @@ while true ; do
 		step_setup_source=1
 		shift
 		;;
-	-2 | --build-kernel)
+	-2 | --run-quilt)
+		step_run_quilt=1
+		shift
+		;;
+	-3 | --build-kernel)
 		step_build_kernel=1
 		shift
 		;;
@@ -107,21 +113,22 @@ else
 	kernel_src=$(find /usr/src/ -maxdepth 1 -type d -name 'linux-[4-6].[0-9]*')
 	
 	if [[ ! ${kernel_src} ]]; then
-		echo "${name}: ERROR: No kernel source kernel_src found in /usr/src/. Use --kernel-src option." >&2
+		echo "${name}: ERROR: No kernel sources found in '/usr/src/'. Use --kernel-src option." >&2
 		usage
 		exit 1
 	fi
 
 	if [ $(echo "${kernel_src}" | wc -l) -gt 1 ]; then
-		echo "${name}: ERROR: Multiple kernel source kernel_src found in /usr/src/. Use --kernel-src option." >&2
+		echo "${name}: ERROR: Multiple kernel sources found in '/usr/src/'. Use --kernel-src option." >&2
 		usage
 		exit 1
 	fi
 fi
 
-revision=$(echo "${kernel_src}" | egrep -o '[.0-9]*$')
-if [[ ! -d "/usr/src/linux-${revision}" ]]; then
-	echo "${name}: ERROR: bad revision: '${revision}'" >&2
+config_arm64="${kernel_src}/debian/config/arm64"
+
+if [[ ! -d "${config_arm64}" ]]; then
+	echo "${name}: ERROR: No '${config_arm64}' found." >&2
 	usage
 	exit 1
 fi
@@ -131,17 +138,26 @@ if [[ -n "${usage}" ]]; then
 	exit 0
 fi
 
-build="build-linux-${revision}${build_id}"
-build_dir="$(pwd)/${build}"
+kernel_name=$(basename ${kernel_src})
+build_name="build-${kernel_name}${build_id}"
+build_dir="${work_dir}/${build_name}"
+install_dir="${build_dir}-install"
+ccache_dir="${build_dir}-ccache"
 
-step_code="${step_setup_source}-${step_build_kernel}"
+step_code="${step_setup_source}-${step_run_quilt}-${step_build_kernel}"
 case "${step_code}" in
-1-|1-1|-1)
+1--|1-1-|1-1-1|-1-|-1-1|--1)
 	#echo "${name}: Steps OK" >&2
 	;;
--)
+--)
 	step_setup_source=1
+	step_run_quilt=1
 	step_build_kernel=1
+	;;
+1--1)
+	echo "${name}: ERROR: Bad flags: 'setup_source + build_kernel'." >&2
+	usage
+	exit 1
 	;;
 *)
 	echo "${name}: ERROR: Internal bad step_code: '${step_code}'." >&2
@@ -150,10 +166,16 @@ case "${step_code}" in
 esac
 
 if [[ ${step_setup_source} ]]; then
-	run_cmd "mkdir -p ${build_dir}"
-	run_cmd "ln -sfT ${build} current-linux-build"
+	if [[ ${verbose} ]]; then
+		rsync_extra="-v"
+	fi
 
-	run_cmd "rsync -av --delete ${kernel_src}/ ${build_dir}/"
+	run_cmd "rm -rf ${install_dir}"
+	run_cmd "mkdir -p ${build_dir}"
+
+	run_cmd "ln -sfT ${build_name} current-linux-build"
+
+	run_cmd "rsync -a ${rsync_extra} --delete --exclude=${ccache_dir} ${kernel_src}/ ${build_dir}/"
 	run_cmd "chown -R $(id -u):$(id -g) ${build_dir}"
 
 	run_cmd "cd ${build_dir}"
@@ -169,7 +191,7 @@ if [[ ${step_setup_source} ]]; then
 	echo "${name}: Success, setup ${build_dir}"
 fi
 
-if [[ ${step_build_kernel} ]]; then
+if [[ ${step_run_quilt} ]]; then
 	run_cmd "cd ${build_dir}"
 
 	run_cmd "quilt pop -a"
@@ -178,8 +200,26 @@ if [[ ${step_build_kernel} ]]; then
 	run_cmd "make -f debian/rules.gen setup_arm64_none"
 	run_cmd "cp debian/build/build_arm64_none_arm64/.config ${build_dir}/"
 	run_cmd "make oldconfig"
-	run_cmd "CCACHE_DIR=$(pwd)/.ccache make CROSS_COMPILE='ccache ' -j${cpus}"
 	run_cmd "make savedefconfig"
+fi
+
+if [[ ${step_build_kernel} ]]; then
+	make_opts="CROSS_COMPILE='ccache ' INSTALL_MOD_PATH='${install_dir}' INSTALL_PATH='${install_dir}/boot' -j${cpus}"
+
+	run_cmd "rm -rf ${install_dir}"
+	run_cmd "mkdir -p ${install_dir}/boot ${install_dir}/lib/modules"
+
+	run_cmd "cd ${build_dir}"
+
+	run_cmd "make clean"
+	run_cmd "CCACHE_DIR=${ccache_dir} make ${make_opts}"
+#	run_cmd "CCACHE_DIR=${ccache_dir} make ${make_opts} install"
+	run_cmd "CCACHE_DIR=${ccache_dir} make ${make_opts} modules_install"
+	run_cmd "make savedefconfig"
+
+	run_cmd "cp --no-dereference ${build_dir}/{defconfig,System.map,vmlinux} ${install_dir}/boot/"
+	run_cmd "cp --no-dereference ${build_dir}/arch/arm64/boot/Image ${install_dir}/boot/"
+	run_cmd "cp --no-dereference ${build_dir}/.config ${install_dir}/boot/config"
 
 	echo "${name}: Success, built ${kernel_src} in ${build_dir}"
 fi

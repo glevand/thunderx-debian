@@ -4,8 +4,8 @@ set -e
 
 name="$(basename ${0})"
 
-: ${TOP_DIR:="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"}
-: ${WORK_DIR:="$(pwd)/buster-kernel-work"}
+TOP_DIR=${TOP_DIR:="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"}
+WORK_DIR=${WORK_DIR:="$(pwd)/buster-kernel-work"}
 
 source ${TOP_DIR}/docker/docker-common.sh
 
