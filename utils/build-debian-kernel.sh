@@ -138,11 +138,10 @@ if [[ -n "${usage}" ]]; then
 	exit 0
 fi
 
-kernel_name=$(basename ${kernel_src})
-build_name="build-${kernel_name}${build_id}"
-build_dir="${work_dir}/${build_name}"
-install_dir="${build_dir}-install"
-ccache_dir="${build_dir}-ccache"
+base_name="$(basename ${kernel_src})${build_id}"
+build_dir="${work_dir}/${base_name}--build"
+install_dir="${work_dir}/${base_name}--install"
+ccache_dir="${work_dir}/${base_name}--ccache"
 
 step_code="${step_setup_source}-${step_run_quilt}-${step_build_kernel}"
 case "${step_code}" in
@@ -173,13 +172,14 @@ if [[ ${step_setup_source} ]]; then
 	run_cmd "rm -rf ${install_dir}"
 	run_cmd "mkdir -p ${build_dir}"
 
-	run_cmd "ln -sfT ${build_name} current-linux-build"
+	run_cmd "cd ${work_dir}"
+	run_cmd "ln -sfT $(basename ${build_dir}) current-linux-build"
+
 
 	run_cmd "rsync -a ${rsync_extra} --delete --exclude=${ccache_dir} ${kernel_src}/ ${build_dir}/"
 	run_cmd "chown -R $(id -u):$(id -g) ${build_dir}"
 
 	run_cmd "cd ${build_dir}"
-
 	run_cmd "quilt pop -a"
 	run_cmd "quilt push -a"
 

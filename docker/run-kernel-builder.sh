@@ -5,7 +5,6 @@ set -e
 name="$(basename ${0})"
 
 TOP_DIR=${TOP_DIR:="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"}
-WORK_DIR=${WORK_DIR:="$(pwd)/buster-kernel-work"}
 
 source ${TOP_DIR}/docker/docker-common.sh
 
@@ -21,13 +20,13 @@ usage () {
 	echo "  -n --name <name>    - Container name. Default: '${docker_name}'" >&2
 	echo "  -u --user <uid:gid> - Enter container as user. Default: '${docker_user}'." >&2
 	echo "  -v --verbose        - Verbose execution." >&2
+	echo "  -w --work-dir       - Working directory. Default: '${work_dir}'." >&2
 	echo "Environment:" >&2
 	echo "  DOCKER_TAG - Default: '${DOCKER_TAG}'" >&2
-	echo "  WORK_DIR   - Default: '${WORK_DIR}'" >&2
 }
 
-short_opts="ho:n:u:v"
-long_opts="help,host:,name:,user:,verbose"
+short_opts="ho:n:u:vw"
+long_opts="help,host:,name:,user:,verbose,work-dir:"
 
 opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
 
@@ -57,9 +56,14 @@ while true ; do
 		shift 2
 		;;
 	-v | --verbose)
+		export PS4='\[\033[0;33m\]+$(basename ${BASH_SOURCE}):${LINENO}: \[\033[0;37m\]'
 		set -x
 		verbose=1
 		shift
+		;;
+	-w | --work-dir)
+		work_dir="${2}"
+		shift 2
 		;;
 	--)
 		shift
@@ -72,6 +76,8 @@ while true ; do
 		;;
 	esac
 done
+
+work_dir=${work_dir:="$(pwd)/buster-kernel-work"}
 
 if [[ -z "${docker_user}" ]]; then
 	docker_user="$(id -u):$(id -g)"
@@ -94,13 +100,13 @@ if [[ -n "${docker_user}" ]]; then
 	docker_flags+=" --user=${docker_user}"
 fi
 
-mkdir -p ${WORK_DIR}
+mkdir -p ${work_dir}
 
 docker run --rm -it \
 	${docker_flags} \
 	--volume=/etc/group:/etc/group:ro \
 	--volume=/etc/passwd:/etc/passwd:ro \
 	--volume=${TOP_DIR}:/"$(basename ${TOP_DIR})" \
-	--volume=${WORK_DIR}:/work \
+	--volume=${work_dir}:/work \
 	--workdir=/work \
 	${DOCKER_TAG}
