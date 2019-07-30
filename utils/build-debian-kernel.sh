@@ -1,13 +1,5 @@
 #!/usr/bin/env bash
 
-set -e
-
-name="$(basename ${0})"
-
-: ${TOP_DIR:="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"}
-
-source ${TOP_DIR}/util-common.sh
-
 usage() {
 	local old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
@@ -33,73 +25,95 @@ usage() {
 	eval "${old_xtrace}"
 }
 
-short_opts="dhi:k:vw:12"
-long_opts="dry-run,help,build-id:,kernel-src:,verbose,work-dir:,setup-source,run-quilt,build-kernel"
+process_opts() {
+	local short_opts="dhi:k:vw:123"
+	local long_opts="dry-run,help,build-id:,kernel-src:,verbose,work-dir:,setup-source,run-quilt,build-kernel"
 
-opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	local opts
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
 
-if [ $? != 0 ]; then
-	echo "${name}: ERROR: Internal getopt" >&2
-	exit 1
-fi
-
-eval set -- "${opts}"
-
-while true ; do
-	case "${1}" in
-	-d | --dry-run)
-		dry_run=1
-		shift
-		;;
-	-h | --help)
-		usage=1
-		shift
-		;;
-	-i | --build-id)
-		build_id="${2}"
-		shift 2
-		;;
-	-k | --kernel-src)
-		kernel_src="${2}"
-		shift 2
-		;;
-	-v | --verbose)
-		export PS4='\[\033[0;33m\]+$(basename ${BASH_SOURCE}):${LINENO}: \[\033[0;37m\]'
-		set -x
-		verbose=1
-		shift
-		;;
-	-w | --work-dir)
-		work_dir="${2}"
-		shift 2
-		;;
-	-1 | --setup-source)
-		step_setup_source=1
-		shift
-		;;
-	-2 | --run-quilt)
-		step_run_quilt=1
-		shift
-		;;
-	-3 | --build-kernel)
-		step_build_kernel=1
-		shift
-		;;
-	--)
-		shift
-		break
-		;;
-	*)
-		echo "${name}: ERROR: Internal opts" >&2
+	if [ $? != 0 ]; then
+		echo "${name}: ERROR: Internal getopt" >&2
 		exit 1
-		;;
-	esac
-done
+	fi
+
+	eval set -- "${opts}"
+
+	while true ; do
+		case "${1}" in
+		-d | --dry-run)
+			dry_run=1
+			shift
+			;;
+		-h | --help)
+			usage=1
+			shift
+			;;
+		-i | --build-id)
+			build_id="${2}"
+			shift 2
+			;;
+		-k | --kernel-src)
+			kernel_src="${2}"
+			shift 2
+			;;
+		-v | --verbose)
+			set -x
+			verbose=1
+			shift
+			;;
+		-w | --work-dir)
+			work_dir="${2}"
+			shift 2
+			;;
+		-1 | --setup-source)
+			step_setup_source=1
+			shift
+			;;
+		-2 | --run-quilt)
+			step_run_quilt=1
+			shift
+			;;
+		-3 | --build-kernel)
+			step_build_kernel=1
+			shift
+			;;
+		--)
+			shift
+			break
+			;;
+		*)
+			echo "${name}: ERROR: Internal opts" >&2
+			exit 1
+			;;
+		esac
+	done
+}
+
+on_exit() {
+	local result=${1}
+
+	set +x
+	echo "${name}: Done: ${result}" >&2
+}
+
+#===============================================================================
+# program start
+#===============================================================================
+export PS4='\[\033[0;33m\]+${BASH_SOURCE##*/}:${LINENO}: \[\033[0;37m\]'
+set -e
+
+name="${0##*/}"
+trap "on_exit 'failed.'" EXIT
+
+SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
+
+source ${SCRIPTS_TOP}/util-common.sh
 
 cmd_trace=1
 cpus="$(cpu_count)"
 
-if [[ -z "${work_dir}" ]]; then
+if [[ ! ${work_dir} ]]; then
 	work_dir="$(pwd)"
 fi
 
@@ -133,8 +147,9 @@ if [[ ! -d "${config_arm64}" ]]; then
 	exit 1
 fi
 
-if [[ -n "${usage}" ]]; then
+if [[ ${usage} ]]; then
 	usage
+	trap - EXIT
 	exit 0
 fi
 
@@ -223,3 +238,5 @@ if [[ ${step_build_kernel} ]]; then
 
 	echo "${name}: Success, built ${kernel_src} in ${build_dir}"
 fi
+
+trap "on_exit 'Success.'" EXIT
