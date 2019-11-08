@@ -6,7 +6,7 @@ Please report any problems encountered during install, any missing kernel config
 
 ## Debian 10 Install
 
-The current Debian 10 Buster [`firmware-nonfree`](https://packages.debian.org/buster/firmware-qlogic) package includes the firmware files needed for the Qlogic network adapter found on many ThunderX2 machines.  Debian policy does not allow these firmware files to be included in the Debian distribution proper and the user must arrange for the files to be available to the Debian installer.  Firmware files available during the installation will be copied to the installed system.  Once the system is running, install the `firmware-qlogic` package to keep the installed firmware files syncronized with the installed kernel.
+The current Debian 10 Buster [`firmware-nonfree`](https://packages.debian.org/buster/firmware-qlogic) package includes the firmware files needed for the Qlogic network adapter found on many ThunderX2 machines.  Debian policy does not allow these firmware files to be included in the Debian distribution proper and the user must arrange for the files to be available to the Debian installer.  Firmware files available during the installation will be copied to the installed system.  Once the system reboots, install the [firmware-qlogic package](#install-firmware-qlogic-package).
 
 
 Typical Debian installer dialog message for missing non-free firmware:
@@ -29,6 +29,7 @@ Typical Debian installer dialog message for missing non-free firmware:
     │                                                                      │
     └──────────────────────────────────────────────────────────────────────┘
 ```
+
 
 For more info on Debian installation and installation with firmware files see:
 
@@ -73,7 +74,19 @@ echo 'base-config     apt-setup/non-free      boolean true' > initrd-files/prese
 
 ### Install via Temporary Ethernet Device
 
-Installation can be done with a USB-to-Ethernet adapter or an Ethernet PCI adapter temporarily installed to the system.  The alternate device itself must not require additional firmware to operate.  When prompted for missing qed firmware files choose to continue the installation without loading those firmware files.  Once the OS installation is complete and the system has been re-booted to the newly installed OS, install the Debian `firmware-qlogic` package and re-boot.  The Qlogic network adapter should be operational.  Update the system's [network configuration](https://www.debian.org/doc/manuals/debian-reference/ch05) to use the Qlogic network adapter and remove the temporary network adapter from the system.
+Installation can be done with a USB-to-Ethernet adapter or an Ethernet PCI adapter temporarily installed to the system.  The alternate device itself must not require additional firmware to operate.  When prompted for missing qed firmware files choose to continue the installation without loading those firmware files.  Once the system reboots, install the [firmware-qlogic package](#install-firmware-qlogic-package) and update the system's [network configuration](https://www.debian.org/doc/manuals/debian-reference/ch05) to use the Qlogic network adapter and remove the temporary network adapter from the system. 
+
+### Install firmware-qlogic package
+
+To install firmware files needed for the Qlogic network adapter, once the OS installation is complete and the system has been re-booted to the newly installed OS, update the sources.list to include `non-free` packages, install the Debian `firmware-qlogic` package, and then re-boot:
+
+```sh
+sudo sed --in-place='.orig' 's/main$/main contrib non-free/' /etc/apt/sources.list
+sudo apt update
+sudo apt install firmware-qlogic
+```
+
+The Qlogic network adapter should then be operational.  The system should automatically update the installed firmware to match the installed kernel.
 
 ## Utilities
 
